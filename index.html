@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trinken">
+<meta name="theme-color" content="#eef5fc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Trinkprotokoll</title>
+<style>
+  :root {
+    --bg: #eef5fc;
+    --bg2: #e3eefa;
+    --card: #ffffff;
+    --text: #0f1b2d;
+    --muted: #6b7a90;
+    --accent: #0a84ff;
+    --accent-soft: #dcecff;
+    --track: #e6edf5;
+    --done: #22b35e;
+    --danger: #ff3b30;
+    --water-top: #5cc0ff;
+    --water-bottom: #0a6cf0;
+    --done-top: #5be0a0;
+    --done-bottom: #16a35a;
+    --glass: #f3f8fe;
+    --pill: rgba(255, 255, 255, .78);
+    --shadow: 0 1px 2px rgba(15, 27, 45, .05), 0 6px 20px rgba(15, 60, 120, .07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1220;
+      --bg2: #0e1830;
+      --card: #151e2e;
+      --text: #eef3fa;
+      --muted: #8a99b0;
+      --accent: #3a9bff;
+      --accent-soft: #1d3352;
+      --track: #24314a;
+      --done: #34c76f;
+      --water-top: #3aa8ff;
+      --water-bottom: #0a4fc4;
+      --done-top: #3fd38a;
+      --done-bottom: #118a4b;
+      --glass: #101828;
+      --pill: rgba(16, 24, 40, .72);
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(180deg, var(--bg2), var(--bg) 340px);
+    color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    padding: calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 16px)
+             calc(env(safe-area-inset-bottom) + 24px) calc(env(safe-area-inset-left) + 16px);
+    -webkit-user-select: none; user-select: none;
+  }
+  main { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  header { display: flex; align-items: center; justify-content: space-between; }
+  h1 { font-size: 30px; margin: 0; letter-spacing: -.5px; }
+  .date { color: var(--muted); font-size: 15px; }
+  .icon-btn {
+    border: 0; background: var(--card); color: var(--accent); width: 42px; height: 42px;
+    border-radius: 50%; font-size: 20px; box-shadow: var(--shadow); cursor: pointer;
+  }
+  .card { background: var(--card); border-radius: 22px; padding: 16px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .card-head h2 { margin: 0; }
+  .link-btn { border: 0; background: none; color: var(--accent); font-size: 15px; padding: 0; cursor: pointer; }
+
+  /* Wasserglas */
+  .glass {
+    --wt: var(--water-top); --wb: var(--water-bottom);
+    position: relative; width: 230px; height: 230px; margin: 6px auto 10px;
+    border-radius: 50%; overflow: hidden; background: var(--glass);
+    box-shadow: inset 0 0 0 5px var(--card), 0 0 0 3px var(--accent-soft);
+    -webkit-mask-image: -webkit-radial-gradient(white, black); /* Safari: runde Ecken beim Animieren */
+  }
+  .glass.done { --wt: var(--done-top); --wb: var(--done-bottom); }
+  .water {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 0;
+    background: linear-gradient(180deg, var(--wt), var(--wb));
+    transition: height 1s cubic-bezier(.2, .8, .2, 1);
+  }
+  .wave {
+    position: absolute; left: 0; bottom: 100%; width: 200%; height: 16px; margin-bottom: -1px;
+    animation: wave 5s linear infinite;
+  }
+  .wave path { fill: var(--wt); transition: fill .4s; }
+  .wave.back { height: 22px; opacity: .45; animation-duration: 8s; animation-direction: reverse; }
+  .water.dry .wave { display: none; }
+  @keyframes wave { to { transform: translateX(-50%); } }
+  .bubbles { position: absolute; inset: 0; overflow: hidden; }
+  .bubble {
+    position: absolute; bottom: -12px; border-radius: 50%; background: rgba(255, 255, 255, .35);
+    animation: rise linear infinite;
+  }
+  @keyframes rise {
+    0% { transform: translateY(0); opacity: 0; }
+    15% { opacity: 1; }
+    100% { transform: translateY(-240px); opacity: 0; }
+  }
+  .glass-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; z-index: 2; }
+  .pill {
+    background: var(--pill); border-radius: 20px; padding: 8px 18px;
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .amount { font-size: 36px; font-weight: 750; letter-spacing: -1px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .goal { color: var(--muted); font-size: 14px; }
+  .pill.pulse { animation: pulse .35s ease; }
+  @keyframes pulse { 50% { transform: scale(1.07); } }
+  .status { text-align: center; font-weight: 600; color: var(--accent); }
+  .status.done { color: var(--done); }
+  @media (prefers-reduced-motion: reduce) {
+    .wave, .bubble { animation: none; }
+    .water { transition: none; }
+  }
+
+  /* Getränkeart */
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto; border: 0; border-radius: 999px; padding: 8px 14px; font-size: 15px;
+    background: var(--track); color: var(--text); cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+  /* Schnell-Tasten */
+  .quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .q {
+    border: 0; border-radius: 16px; padding: 12px 4px; background: var(--accent-soft); color: var(--text);
+    display: grid; gap: 2px; justify-items: center; cursor: pointer; font-size: 13px; min-width: 0;
+  }
+  .q > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q:active, .chip:active, .add-btn:active { transform: scale(.95); }
+  .q b { font-size: 17px; color: var(--accent); }
+  .q .e { font-size: 22px; }
+  .custom { display: flex; gap: 8px; margin-top: 10px; }
+  .field {
+    flex: 1; min-width: 0; border: 0; border-radius: 14px; padding: 12px 14px; font-size: 17px;
+    background: var(--track); color: var(--text); -webkit-user-select: text; user-select: text; font-family: inherit;
+  }
+  .add-btn { border: 0; border-radius: 14px; padding: 0 18px; background: var(--accent); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+
+  /* Liste */
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--track); }
+  .list li:first-child { border-top: 0; }
+  .list .emoji { font-size: 22px; width: 28px; text-align: center; }
+  .list .what { flex: 1; }
+  .list .time { color: var(--muted); font-size: 13px; }
+  .list .ml { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .del { border: 0; background: none; color: var(--muted); font-size: 20px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; flex: 0 0 auto; }
+  .del:active { color: var(--danger); background: var(--track); }
+  .del:disabled { opacity: .3; }
+  .empty { color: var(--muted); text-align: center; padding: 8px 0; }
+
+  /* Woche */
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 140px; position: relative; }
+  .day { display: grid; grid-template-rows: 1fr auto; height: 100%; justify-items: center; gap: 4px; }
+  .bar-area { width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+  .bar { width: 70%; max-width: 30px; border-radius: 7px 7px 3px 3px; background: linear-gradient(180deg, var(--water-top), var(--water-bottom)); min-height: 3px; transition: height .5s; }
+  .bar.done { background: linear-gradient(180deg, var(--done-top), var(--done-bottom)); }
+  .bar.empty-bar { background: var(--track); }
+  .day small { color: var(--muted); font-size: 12px; }
+  .day.today small { color: var(--text); font-weight: 700; }
+  .goal-line { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--track); pointer-events: none; }
+  .week-sum { color: var(--muted); font-size: 14px; margin-top: 10px; text-align: center; }
+
+  /* Dialoge */
+  dialog {
+    border: 0; border-radius: 22px; padding: 20px; background: var(--card); color: var(--text);
+    width: min(92vw, 400px); max-height: 85vh; overflow: auto;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .4); }
+  dialog h3 { margin: 0 0 6px; }
+  dialog p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .dlg-actions .add-btn { padding: 10px 18px; }
+  .ghost { border: 0; background: var(--track); color: var(--text); border-radius: 14px; padding: 10px 16px; font-size: 16px; cursor: pointer; }
+  .edit-head, .edit-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 84px 32px; gap: 6px; align-items: center; }
+  .edit-head { font-size: 12px; color: var(--muted); margin-bottom: 4px; padding: 0 2px; }
+  .edit-row { margin-bottom: 8px; }
+  .edit-row .field { padding: 10px; font-size: 16px; border-radius: 12px; }
+  .edit-row .field.emoji-in { text-align: center; font-size: 20px; padding: 6px; }
+  .edit-tools { display: flex; justify-content: space-between; margin-top: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Heute</h1>
+      <div class="date" id="date"></div>
+    </div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Tagesziel ändern">⚙︎</button>
+  </header>
+
+  <section class="card">
+    <div class="glass" id="glass">
+      <div class="water dry" id="water">
+        <svg class="wave back" viewBox="0 0 400 20" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 10 Q25 0 50 10 T100 10 T150 10 T200 10 T250 10 T300 10 T350 10 T400 10 V20 H0 Z"/>
+        </svg>
+        <svg class="wave" viewBox="0 0 400 20" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 10 Q25 2 50 10 T100 10 T150 10 T200 10 T250 10 T300 10 T350 10 T400 10 V20 H0 Z"/>
+        </svg>
+        <div class="bubbles" id="bubbles"></div>
+      </div>
+      <div class="glass-center">
+        <div class="pill" id="pill">
+          <div class="amount" id="amount">0 ml</div>
+          <div class="goal" id="goalText">von 2.500 ml</div>
+        </div>
+      </div>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Was trinkst du?</h2>
+      <button class="link-btn" id="editQuickBtn" type="button">Tasten bearbeiten</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="quick" id="quick"></div>
+    <form class="custom" id="customForm">
+      <input class="field" id="customInput" type="number" inputmode="numeric" min="1" max="5000" placeholder="Eigene Menge in ml">
+      <button class="add-btn" type="submit">Hinzufügen</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Heutige Einträge</h2>
+    <ul class="list" id="list"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Letzte 7 Tage</h2>
+    <div class="week" id="week"></div>
+    <div class="week-sum" id="weekSum"></div>
+  </section>
+</main>
+
+<dialog id="goalDialog">
+  <form method="dialog" id="goalForm">
+    <h3>Tagesziel</h3>
+    <p>Empfohlen sind für Erwachsene etwa 1,5 bis 2,5 Liter am Tag.</p>
+    <div class="custom" style="margin-top:0">
+      <input class="field" id="goalInput" type="number" inputmode="numeric" min="500" max="6000" step="50">
+      <span style="align-self:center">ml</span>
+    </div>
+    <div class="dlg-actions">
+      <button class="ghost" type="button" data-close>Abbrechen</button>
+      <button class="add-btn" value="ok">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="quickDialog">
+  <form method="dialog" id="quickForm">
+    <h3>Schnell-Tasten</h3>
+    <p>Lege bis zu 8 Tasten mit deinen eigenen Gläsern und Flaschen an.</p>
+    <div class="edit-head"><span>Symbol</span><span>Name</span><span>ml</span><span></span></div>
+    <div id="editRows"></div>
+    <div class="edit-tools">
+      <button class="link-btn" type="button" id="addRowBtn">+ Taste hinzufügen</button>
+      <button class="link-btn" type="button" id="resetQuickBtn" style="color:var(--muted)">Standard</button>
+    </div>
+    <div class="dlg-actions">
+      <button class="ghost" type="button" data-close>Abbrechen</button>
+      <button class="add-btn" value="ok">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  const KEY = 'trinkapp-v1';
+  const MAX_QUICK = 8;
+  const TYPES = {
+    wasser: { name: 'Wasser', emoji: '💧' },
+    tee:    { name: 'Tee', emoji: '🍵' },
+    kaffee: { name: 'Kaffee', emoji: '☕' },
+    saft:   { name: 'Saft', emoji: '🧃' },
+    sonst:  { name: 'Sonstiges', emoji: '🥤' },
+  };
+  const DEFAULT_QUICK = [
+    { emoji: '🥃', label: 'Schluck', ml: 100 },
+    { emoji: '🥛', label: 'Glas', ml: 250 },
+    { emoji: '🥫', label: 'Dose', ml: 330 },
+    { emoji: '🍼', label: 'Flasche', ml: 500 },
+  ];
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString('de-DE');
+  const dayKey = (d = new Date()) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const copyDefaults = () => DEFAULT_QUICK.map(q => ({ ...q }));
+
+  // ---- Daten (bleiben im Speicher des Browsers auf dem Gerät) ----
+  function load() {
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    if (!s || !s.entries) s = { entries: {} };
+    s = { goal: 2500, type: 'wasser', ...s };
+    if (!Array.isArray(s.quick) || !s.quick.length) s.quick = copyDefaults();
+    return s;
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  let state = load();
+
+  const todayList = () => state.entries[dayKey()] || [];
+  const total = key => (state.entries[key] || []).reduce((sum, e) => sum + e.ml, 0);
+
+  function add(ml) {
+    ml = Math.round(ml);
+    if (!(ml > 0 && ml <= 5000)) return;
+    const k = dayKey();
+    (state.entries[k] = state.entries[k] || []).push({ t: Date.now(), ml, type: state.type });
+    prune();
+    save();
+    render();
+    const p = $('pill');
+    p.classList.remove('pulse'); void p.offsetWidth; p.classList.add('pulse');
+  }
+  function remove(t) {
+    state.entries[dayKey()] = todayList().filter(e => e.t !== t);
+    save();
+    render();
+  }
+  // Nur die letzten 90 Tage aufheben
+  function prune() {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+    const ck = dayKey(cutoff);
+    for (const k in state.entries) if (k < ck) delete state.entries[k];
+  }
+
+  // ---- Schnell-Tasten ----
+  function renderQuick() {
+    const quick = $('quick');
+    quick.innerHTML = '';
+    for (const q of state.quick) {
+      const b = document.createElement('button');
+      b.className = 'q'; b.type = 'button';
+      for (const [cls, txt] of [['e', q.emoji], ['', null], ['', q.label]]) {
+        const el = document.createElement(txt === null ? 'b' : 'span');
+        if (cls) el.className = cls;
+        el.textContent = txt === null ? q.ml : txt;
+        b.appendChild(el);
+      }
+      b.setAttribute('aria-label', `${q.label} ${q.ml} ml hinzufügen`);
+      b.onclick = () => add(q.ml);
+      quick.appendChild(b);
+    }
+  }
+
+  // Erstes Zeichen (auch zusammengesetzte Emojis) nehmen
+  function firstSymbol(s) {
+    s = (s || '').trim();
+    if (!s) return '';
+    if (window.Intl && Intl.Segmenter) {
+      const it = new Intl.Segmenter().segment(s)[Symbol.iterator]().next();
+      return it.done ? '' : it.value.segment;
+    }
+    return Array.from(s)[0];
+  }
+
+  let draft = [];
+  function openQuickEditor() {
+    draft = state.quick.map(q => ({ ...q }));
+    renderEditor();
+    $('quickDialog').showModal();
+  }
+  function renderEditor() {
+    const box = $('editRows');
+    box.innerHTML = '';
+    draft.forEach((q, i) => {
+      const row = document.createElement('div');
+      row.className = 'edit-row';
+      const mk = (cls, type, value, attrs, onChange) => {
+        const inp = document.createElement('input');
+        inp.className = 'field ' + cls; inp.type = type; inp.value = value;
+        Object.assign(inp, attrs);
+        inp.oninput = () => onChange(inp.value);
+        row.appendChild(inp);
+      };
+      mk('emoji-in', 'text', q.emoji, { ariaLabel: 'Symbol', maxLength: 12 }, v => q.emoji = v);
+      mk('', 'text', q.label, { ariaLabel: 'Name', maxLength: 14, placeholder: 'Name' }, v => q.label = v);
+      mk('', 'number', q.ml, { ariaLabel: 'Milliliter', min: 1, max: 5000, inputMode: 'numeric' }, v => q.ml = v);
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'del'; del.textContent = '×';
+      del.setAttribute('aria-label', 'Taste entfernen');
+      del.disabled = draft.length <= 1;
+      del.onclick = () => { draft.splice(i, 1); renderEditor(); };
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+    $('addRowBtn').disabled = draft.length >= MAX_QUICK;
+    $('addRowBtn').style.opacity = draft.length >= MAX_QUICK ? .4 : 1;
+  }
+  function saveQuickEditor() {
+    const clean = draft
+      .map(q => {
+        const ml = Math.round(parseFloat(q.ml));
+        return {
+          emoji: firstSymbol(q.emoji) || '🥤',
+          label: (q.label || '').trim().slice(0, 14) || `${ml} ml`,
+          ml,
+        };
+      })
+      .filter(q => q.ml > 0 && q.ml <= 5000);
+    state.quick = clean.length ? clean : copyDefaults();
+    save();
+    renderQuick();
+  }
+
+  // ---- Oberfläche ----
+  function buildControls() {
+    const chips = $('chips');
+    for (const [key, t] of Object.entries(TYPES)) {
+      const b = document.createElement('button');
+      b.className = 'chip'; b.type = 'button'; b.dataset.type = key;
+      b.textContent = `${t.emoji} ${t.name}`;
+      b.onclick = () => { state.type = key; save(); renderChips(); };
+      chips.appendChild(b);
+    }
+    renderQuick();
+
+    $('customForm').onsubmit = e => {
+      e.preventDefault();
+      const v = parseFloat($('customInput').value);
+      if (v > 0) { add(v); $('customInput').value = ''; $('customInput').blur(); }
+    };
+
+    // Abbrechen-Knöpfe in allen Dialogen
+    document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close('cancel'));
+
+    $('settingsBtn').onclick = () => { $('goalInput').value = state.goal; $('goalDialog').showModal(); };
+    $('goalDialog').addEventListener('close', () => {
+      if ($('goalDialog').returnValue !== 'ok') return;
+      const g = Math.round(parseFloat($('goalInput').value));
+      if (g >= 500 && g <= 6000) { state.goal = g; save(); render(); }
+    });
+
+    $('editQuickBtn').onclick = openQuickEditor;
+    $('addRowBtn').onclick = () => {
+      if (draft.length >= MAX_QUICK) return;
+      draft.push({ emoji: '🥤', label: '', ml: 400 });
+      renderEditor();
+      const rows = $('editRows').querySelectorAll('.edit-row');
+      rows[rows.length - 1].querySelectorAll('input')[1].focus();
+    };
+    $('resetQuickBtn').onclick = () => { draft = copyDefaults(); renderEditor(); };
+    $('quickDialog').addEventListener('close', () => {
+      if ($('quickDialog').returnValue === 'ok') saveQuickEditor();
+    });
+
+    // Aufsteigende Bläschen im Wasser
+    const bubbles = $('bubbles');
+    for (let i = 0; i < 9; i++) {
+      const b = document.createElement('span');
+      const size = 4 + Math.random() * 8;
+      b.className = 'bubble';
+      b.style.cssText = `left:${8 + Math.random() * 84}%;width:${size}px;height:${size}px;` +
+        `animation-duration:${3 + Math.random() * 4}s;animation-delay:${-Math.random() * 6}s`;
+      bubbles.appendChild(b);
+    }
+  }
+
+  function renderChips() {
+    for (const b of $('chips').children) b.setAttribute('aria-pressed', b.dataset.type === state.type);
+  }
+
+  function render() {
+    const now = new Date();
+    $('date').textContent = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    // Wasserglas
+    const sum = total(dayKey());
+    const p = sum / state.goal;
+    const level = Math.min(p, 1);
+    const water = $('water');
+    // etwas Wasser bleibt auch knapp unter 100 % sichtbar unter der Welle
+    water.style.height = level >= 1 ? '108%' : `${level * 100}%`;
+    water.classList.toggle('dry', sum === 0);
+    $('glass').classList.toggle('done', p >= 1);
+    $('amount').textContent = `${fmt(sum)} ml`;
+    $('goalText').textContent = `von ${fmt(state.goal)} ml · ${Math.round(p * 100)} %`;
+    const status = $('status');
+    status.classList.toggle('done', p >= 1);
+    status.textContent = p >= 1 ? 'Tagesziel erreicht! 🎉' : `Noch ${fmt(state.goal - sum)} ml bis zum Ziel`;
+
+    renderChips();
+
+    // Liste
+    const list = $('list');
+    list.innerHTML = '';
+    const items = [...todayList()].reverse();
+    if (!items.length) {
+      const li = document.createElement('li');
+      li.className = 'empty'; li.textContent = 'Noch nichts getrunken heute.';
+      list.appendChild(li);
+    }
+    for (const e of items) {
+      const t = TYPES[e.type] || TYPES.sonst;
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="emoji">${t.emoji}</span>
+        <span class="what">${t.name}<br><span class="time">${new Date(e.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span></span>
+        <span class="ml">${fmt(e.ml)} ml</span>`;
+      const del = document.createElement('button');
+      del.className = 'del'; del.textContent = '×';
+      del.setAttribute('aria-label', 'Eintrag löschen');
+      del.onclick = () => remove(e.t);
+      li.appendChild(del);
+      list.appendChild(li);
+    }
+
+    // Woche
+    const week = $('week');
+    week.innerHTML = '';
+    const maxScale = 1.25; // Balken bis 125 % des Ziels
+    let weekTotal = 0, goalDays = 0;
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const s = total(dayKey(d));
+      weekTotal += s; if (s >= state.goal) goalDays++;
+      const day = document.createElement('div');
+      day.className = 'day' + (i === 0 ? ' today' : '');
+      day.title = `${fmt(s)} ml`;
+      const h = Math.min(s / state.goal, maxScale) / maxScale * 100;
+      day.innerHTML = `<div class="bar-area"><div class="bar ${s === 0 ? 'empty-bar' : s >= state.goal ? 'done' : ''}" style="height:${h}%"></div></div>
+        <small>${i === 0 ? 'Heute' : d.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '')}</small>`;
+      week.appendChild(day);
+    }
+    const line = document.createElement('div');
+    line.className = 'goal-line';
+    // Ziel-Linie: Balkenbereich = Höhe minus Beschriftung (~20px)
+    line.style.bottom = `calc(20px + (100% - 20px) * ${1 / maxScale})`;
+    week.appendChild(line);
+    $('weekSum').textContent = `Ø ${fmt(Math.round(weekTotal / 7))} ml pro Tag · Ziel an ${goalDays} von 7 Tagen erreicht`;
+  }
+
+  buildControls();
+  render();
+  // Neuer Tag, wenn die App aus dem Hintergrund zurückkommt
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+  // Offline-Modus (funktioniert nur über https, nicht beim lokalen Öffnen der Datei)
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
